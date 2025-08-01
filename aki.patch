@@ -1,0 +1,28 @@
+diff --git a/cmd/kubeadm/app/util/pkiutil/pki_helpers.go b/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
+index 6616a023402..9aba572304d 100644
+--- a/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
++++ b/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
+@@ -629,6 +629,23 @@ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate,
+ 		BasicConstraintsValid: true,
+ 		IsCA:                  isCA,
+ 	}
++
++	// If the CA has a SubjectKeyId, use it as the AuthorityKeyId
++	// Otherwise, generate an AuthorityKeyId from the CA's public key
++	if caCert.SubjectKeyId != nil {
++		certTmpl.AuthorityKeyId = caCert.SubjectKeyId
++	} else {
++		// Generate AuthorityKeyId from CA's public key
++		pubKeyBytes, err := x509.MarshalPKIXPublicKey(caCert.PublicKey)
++		if err != nil {
++			return nil, err
++		}
++		// Use SHA-1 hash of the public key as the AuthorityKeyId
++		hash := crypto.SHA1.New()
++		hash.Write(pubKeyBytes)
++		certTmpl.AuthorityKeyId = hash.Sum(nil)
++	}
++
+ 	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &certTmpl, caCert, key.Public(), caKey)
+ 	if err != nil {
+ 		return nil, err
