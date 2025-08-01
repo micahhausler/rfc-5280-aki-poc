@@ -1,26 +1,57 @@
 diff --git a/cmd/kubeadm/app/util/pkiutil/pki_helpers.go b/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
-index 6616a023402..9aba572304d 100644
+index 4c3bfb9a1f9..05f5af05f99 100644
 --- a/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
 +++ b/cmd/kubeadm/app/util/pkiutil/pki_helpers.go
-@@ -629,6 +629,23 @@ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate,
+@@ -589,6 +589,35 @@ func GeneratePrivateKey(keyType kubeadmapi.EncryptionAlgorithmType) (crypto.Sign
+ 	return rsa.GenerateKey(cryptorand.Reader, rsaKeySize)
+ }
+ 
++// generateKeyIdentifier generates a key identifier from a public key according to RFC 5280.
++// It computes a SHA-1 hash of the public key bits.
++func generateKeyIdentifier(pub crypto.PublicKey) ([]byte, error) {
++	// For RSA keys, we can extract the modulus directly
++	if rsaPub, ok := pub.(*rsa.PublicKey); ok {
++		hash := crypto.SHA1.New()
++		hash.Write(rsaPub.N.Bytes())
++		return hash.Sum(nil), nil
++	}
++
++	// For ECDSA keys, we can extract the x and y coordinates
++	if ecdsaPub, ok := pub.(*ecdsa.PublicKey); ok {
++		hash := crypto.SHA1.New()
++		hash.Write(ecdsaPub.X.Bytes())
++		hash.Write(ecdsaPub.Y.Bytes())
++		return hash.Sum(nil), nil
++	}
++
++	// Fallback: use the entire DER-encoded public key
++	pubKeyBytes, err := x509.MarshalPKIXPublicKey(pub)
++	if err != nil {
++		return nil, err
++	}
++
++	hash := crypto.SHA1.New()
++	hash.Write(pubKeyBytes)
++	return hash.Sum(nil), nil
++}
++
+ // NewSignedCert creates a signed certificate using the given CA certificate and key
+ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate, caKey crypto.Signer, isCA bool) (*x509.Certificate, error) {
+ 	// returns a uniform random value in [0, max-1), then add 1 to serial to make it a uniform random value in [1, max).
+@@ -633,6 +662,18 @@ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate,
  		BasicConstraintsValid: true,
  		IsCA:                  isCA,
  	}
 +
-+	// If the CA has a SubjectKeyId, use it as the AuthorityKeyId
++	// If the CA has a SubjectKeyId, let the standard library use it as the AuthorityKeyId
 +	// Otherwise, generate an AuthorityKeyId from the CA's public key
-+	if caCert.SubjectKeyId != nil {
-+		certTmpl.AuthorityKeyId = caCert.SubjectKeyId
-+	} else {
-+		// Generate AuthorityKeyId from CA's public key
-+		pubKeyBytes, err := x509.MarshalPKIXPublicKey(caCert.PublicKey)
++	if caCert.SubjectKeyId == nil {
++		// Generate AuthorityKeyId from CA's public key using RFC 5280 method
++		keyId, err := generateKeyIdentifier(caCert.PublicKey)
 +		if err != nil {
 +			return nil, err
 +		}
-+		// Use SHA-1 hash of the public key as the AuthorityKeyId
-+		hash := crypto.SHA1.New()
-+		hash.Write(pubKeyBytes)
-+		certTmpl.AuthorityKeyId = hash.Sum(nil)
++		certTmpl.AuthorityKeyId = keyId
 +	}
 +
  	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &certTmpl, caCert, key.Public(), caKey)

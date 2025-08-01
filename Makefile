@@ -66,8 +66,31 @@ run-client-py313-no-strict:
 		-e KUBERNETES_HOSTNAME=kubernetes \
 		-e KUBERNETES_CA_CERT=/app/certs/1.16/ca.crt \
 		-e VERIFY_X509_STRICT=false \
+		-e VERIFY_X509_PARTIAL_CHAIN=true\
 		-v $(PWD)/certs/:/app/certs/ \
 		-v $(PWD)/client.py:/app/client.py \
 		-w /app \
 		python:3.13-alpine \
-		python client.py 
+		python client.py
+	docker run --rm \
+		--add-host kubernetes:host-gateway \
+		-e KUBERNETES_HOSTNAME=kubernetes \
+		-e KUBERNETES_CA_CERT=/app/certs/1.16/ca.crt \
+		-e VERIFY_X509_STRICT=false \
+		-e VERIFY_X509_PARTIAL_CHAIN=false \
+		-v $(PWD)/certs/:/app/certs/ \
+		-v $(PWD)/client.py:/app/client.py \
+		-w /app \
+		python:3.13-alpine \
+		python client.py
+	docker run --rm \
+		--add-host kubernetes:host-gateway \
+		-e KUBERNETES_HOSTNAME=kubernetes \
+		-e KUBERNETES_CA_CERT=/app/certs/1.16/ca.crt \
+		-e VERIFY_X509_STRICT=true \
+		-e VERIFY_X509_PARTIAL_CHAIN=false \
+		-v $(PWD)/certs/:/app/certs/ \
+		-v $(PWD)/client.py:/app/client.py \
+		-w /app \
+		python:3.13-alpine \
+		python client.py

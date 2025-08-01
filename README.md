@@ -11,6 +11,7 @@ To build kubeadm-patched from source,
 ```bash
 git clone https://github.com/kubernetes/kubernetes.git
 cd kubernetes
+git checkout v1.33.0
 cp $CA_POC_DIR/aki.patch ./
 git apply aki.patch
 KUBE_BUILD_PLATFORMS=linux/amd64 make WHAT=cmd/kubeadm

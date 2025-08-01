@@ -11,13 +11,13 @@ def main():
     hostname = os.getenv('KUBERNETES_HOSTNAME', 'kubernetes')
     ca_cert_path = os.getenv('KUBERNETES_CA_CERT', 'certs/1.16/ca.crt')
     verify_x509_strict = os.getenv('VERIFY_X509_STRICT', 'true').lower() in ('true', '1', 'yes')
+    verify_x509_partial_chain = os.getenv('VERIFY_X509_PARTIAL_CHAIN', 'true').lower() in ('true', '1', 'yes')
     
     # Debug print
     print(f"Using CA certificate at: {ca_cert_path}", file=sys.stderr)
     print(f"File exists: {os.path.exists(ca_cert_path)}", file=sys.stderr)
     if os.path.exists(ca_cert_path):
         print(f"File is readable: {os.access(ca_cert_path, os.R_OK)}", file=sys.stderr)
-    print(f"VERIFY_X509_STRICT enabled: {verify_x509_strict}", file=sys.stderr)
     
     # Create SSL context with custom CA
     context = ssl.create_default_context()
@@ -27,6 +27,9 @@ def main():
     if not verify_x509_strict:
         context.verify_flags &= ~ssl.VERIFY_X509_STRICT
         print("VERIFY_X509_STRICT has been disabled", file=sys.stderr)
+    if not verify_x509_partial_chain:
+        context.verify_flags &= ~ssl.VERIFY_X509_PARTIAL_CHAIN
+        print("VERIFY_X509_PARTIAL_CHAIN has been disabled", file=sys.stderr)
     
     # Create the URL
     url = f'https://{hostname}/'
